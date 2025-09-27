@@ -416,12 +416,14 @@ export default function DashboardPage() {
         <ExportsByBasin data={exportsByBasin} />
       </div>
 
-      {/* Tables */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      {/* Tables + Map */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 auto-rows-[minmax(0,1fr)] items-stretch">
+        <div className="lg:col-span-2 h-full">
           <TopCompaniesTable rows={companies} />
         </div>
-        <ArgentinaBasinMap data={basinMapData} />
+        <div className="h-full">
+          <ArgentinaBasinMap data={basinMapData} />
+        </div>
       </div>
 
       {/* Placeholder for drill-down navigation */}
