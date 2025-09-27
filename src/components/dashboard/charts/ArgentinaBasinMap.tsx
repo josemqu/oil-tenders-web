@@ -10,6 +10,7 @@ import {
   Graticule,
   Sphere,
 } from "react-simple-maps";
+import { useState } from "react";
 
 // Use world-atlas from unpkg CDN (commonly used with react-simple-maps)
 const WORLD_110M = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
@@ -27,6 +28,13 @@ export function ArgentinaBasinMap({ data }: { data: BasinPoint[] }) {
     const r = 6 + 20 * Math.sqrt(v / max);
     return Math.max(6, Math.min(26, r));
   };
+
+  const [hover, setHover] = useState<{
+    name: string;
+    value: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
   return (
     <Card className="shadow-sm">
@@ -109,7 +117,17 @@ export function ArgentinaBasinMap({ data }: { data: BasinPoint[] }) {
                 )}
               </Geographies>
               {data.map((b) => (
-                <Marker key={b.name} coordinates={b.coordinates}>
+                <Marker
+                  key={b.name}
+                  coordinates={b.coordinates}
+                  onMouseEnter={(e: any) =>
+                    setHover({ name: b.name, value: b.value, x: e.clientX, y: e.clientY })
+                  }
+                  onMouseMove={(e: any) =>
+                    setHover({ name: b.name, value: b.value, x: e.clientX, y: e.clientY })
+                  }
+                  onMouseLeave={() => setHover(null)}
+                >
                   <circle
                     r={radius(b.value)}
                     fill="#22c55e"
@@ -124,6 +142,15 @@ export function ArgentinaBasinMap({ data }: { data: BasinPoint[] }) {
               ))}
             </ZoomableGroup>
           </ComposableMap>
+          {hover && (
+            <div
+              className="pointer-events-none fixed z-50 rounded-md border border-border bg-popover px-3 py-2 text-xs shadow-md"
+              style={{ left: hover.x + 12, top: hover.y + 12 }}
+            >
+              <div className="font-medium text-foreground">{hover.name}</div>
+              <div className="text-muted-foreground">{hover.value.toLocaleString()} bbl</div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
