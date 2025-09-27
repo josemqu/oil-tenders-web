@@ -17,6 +17,7 @@ import { Droplets, Award, Percent, Gauge } from "lucide-react";
 import { api } from "@/lib/api";
 import { ArgentinaBasinMap, BasinPoint } from "@/components/dashboard/charts/ArgentinaBasinMap";
 import { getBasinCoords } from "@/components/dashboard/charts/basins";
+import { convertVolume, unitSuffix, type VolumeUnit } from "@/lib/utils";
 
 type AnyOffer = Record<string, any>;
 
@@ -82,6 +83,7 @@ export default function DashboardPage() {
   const searchParams = useSearchParams();
   const [filters, setFilters] = useState<FiltersValue>({});
   const [offers, setOffers] = useState<AnyOffer[]>([]);
+  const [unit, setUnit] = useState<VolumeUnit>("m3");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -227,8 +229,11 @@ export default function DashboardPage() {
     }
     const awardRate = filtered.length ? awardedCount / filtered.length : 0;
     const avgPrice = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
-    return { tenderedVolume: tenderedVol, awardedVolume: awardedVol, awardRate, avgPrice, activeOffers: activeCount };
-  }, [filtered]);
+    // Convert for display
+    const tenderedConv = convertVolume(tenderedVol, "m3", unit);
+    const awardedConv = convertVolume(awardedVol, "m3", unit);
+    return { tenderedVolume: tenderedConv, awardedVolume: awardedConv, awardRate, avgPrice, activeOffers: activeCount };
+  }, [filtered, unit]);
 
   // Basin map aggregation (Argentina)
   const basinMapData: BasinPoint[] = useMemo(() => {
@@ -241,10 +246,10 @@ export default function DashboardPage() {
     const arr: BasinPoint[] = [];
     for (const [name, value] of map.entries()) {
       const coords = getBasinCoords(name) || [-64.0, -40.5];
-      arr.push({ name, coordinates: coords, value });
+      arr.push({ name, coordinates: coords, value: convertVolume(value, "m3", unit) });
     }
     return arr.sort((a, b) => b.value - a.value);
-  }, [filtered]);
+  }, [filtered, unit]);
 
   const series: TimePoint[] = useMemo(() => {
     const map = new Map<string, { tendered: number; awarded: number }>();
@@ -258,10 +263,15 @@ export default function DashboardPage() {
       if (isAwarded) cur.awarded += pickNumber(o, ["awarded_volume", "volume", "qty", "quantity"]) || 0;
       map.set(d, cur);
     }
-    return Array.from(map.entries())
+    const converted = Array.from(map.entries())
       .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-      .map(([date, v]) => ({ date, ...v }));
-  }, [filtered]);
+      .map(([date, v]) => ({
+        date,
+        tendered: convertVolume(v.tendered, "m3", unit),
+        awarded: convertVolume(v.awarded, "m3", unit),
+      }));
+    return converted;
+  }, [filtered, unit]);
 
   const byProduct: ProductItem[] = useMemo(() => {
     const map = new Map<string, number>();
@@ -271,10 +281,10 @@ export default function DashboardPage() {
       map.set(p, (map.get(p) || 0) + vol);
     }
     return Array.from(map.entries())
-      .map(([product, volume]) => ({ product, volume }))
+      .map(([product, volume]) => ({ product, volume: convertVolume(volume, "m3", unit) }))
       .sort((a, b) => b.volume - a.volume)
       .slice(0, 12);
-  }, [filtered]);
+  }, [filtered, unit]);
 
   const byCountry: CountryItem[] = useMemo(() => {
     const mapOffer = new Map<string, number>();
@@ -289,12 +299,12 @@ export default function DashboardPage() {
     const countries = new Set([...mapOffer.keys(), ...mapDest.keys()]);
     return Array.from(countries).map((c) => ({
       country: c,
-      offering: mapOffer.get(c) || 0,
-      destination: mapDest.get(c) || 0,
+      offering: convertVolume(mapOffer.get(c) || 0, "m3", unit),
+      destination: convertVolume(mapDest.get(c) || 0, "m3", unit),
     }))
     .sort((a, b) => b.offering + b.destination - (a.offering + a.destination))
     .slice(0, 12);
-  }, [filtered]);
+  }, [filtered, unit]);
 
   const funnel: FunnelItem[] = useMemo(() => {
     let total = filtered.length;
@@ -334,10 +344,10 @@ export default function DashboardPage() {
       map.set(basin, (map.get(basin) || 0) + vol);
     }
     return Array.from(map.entries())
-      .map(([basin, volume]) => ({ basin, volume }))
+      .map(([basin, volume]) => ({ basin, volume: convertVolume(volume, "m3", unit) }))
       .sort((a, b) => b.volume - a.volume)
       .slice(0, 12);
-  }, [filtered]);
+  }, [filtered, unit]);
 
   const companies: CompanyRow[] = useMemo(() => {
     const mapVol = new Map<string, { volume: number; offers: number }>();
@@ -353,12 +363,12 @@ export default function DashboardPage() {
     }
     const rows: CompanyRow[] = Array.from(mapVol.entries()).map(([company, v]) => ({
       company,
-      volume: v.volume,
+      volume: convertVolume(v.volume, "m3", unit),
       percent: totalVol ? v.volume / totalVol : 0,
       offers: v.offers,
     }));
     return rows.sort((a, b) => b.volume - a.volume).slice(0, 20);
-  }, [filtered]);
+  }, [filtered, unit]);
 
   const expiring: ExpiringOffer[] = useMemo(() => {
     const items: ExpiringOffer[] = [];
@@ -392,8 +402,8 @@ export default function DashboardPage() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard title="Volumen licitado" value={`${kpis.tenderedVolume.toLocaleString()} bbl`} icon={<Droplets className="h-5 w-5" />} accent="blue" />
-        <KpiCard title="Volumen adjudicado" value={`${kpis.awardedVolume.toLocaleString()} bbl`} icon={<Award className="h-5 w-5" />} accent="emerald" />
+        <KpiCard title={`Volumen licitado (${unitSuffix(unit).trim()})`} value={`${kpis.tenderedVolume.toLocaleString()}${unitSuffix(unit)}`} icon={<Droplets className="h-5 w-5" />} accent="blue" />
+        <KpiCard title={`Volumen adjudicado (${unitSuffix(unit).trim()})`} value={`${kpis.awardedVolume.toLocaleString()}${unitSuffix(unit)}`} icon={<Award className="h-5 w-5" />} accent="emerald" />
         <KpiCard title="Tasa de adjudicación" value={`${(kpis.awardRate * 100).toFixed(1)}%`} icon={<Percent className="h-5 w-5" />} accent="violet" />
         <KpiCard title="Precio promedio" value={`$${kpis.avgPrice.toFixed(2)}`} icon={<Gauge className="h-5 w-5" />} accent="amber" />
       </div>
@@ -401,19 +411,19 @@ export default function DashboardPage() {
       {/* Charts grid */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2">
-          <VolumeOverTime data={series} />
+          <VolumeOverTime data={series} unit={unit} />
         </div>
         <OffersFunnel data={funnel} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <VolumeByProduct data={byProduct} onClick={onDrillProduct} />
-        <VolumeByCountry data={byCountry} onClick={onDrillCountry} />
+        <VolumeByProduct data={byProduct} onClick={onDrillProduct} unit={unit} />
+        <VolumeByCountry data={byCountry} onClick={onDrillCountry} unit={unit} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <PriceVsVolume data={scatter} />
-        <ExportsByBasin data={exportsByBasin} />
+        <ExportsByBasin data={exportsByBasin} unit={unit} />
       </div>
 
       {/* Tables + Map */}
@@ -422,8 +432,25 @@ export default function DashboardPage() {
           <TopCompaniesTable rows={companies} />
         </div>
         <div className="h-full">
-          <ArgentinaBasinMap data={basinMapData} />
+          <ArgentinaBasinMap data={basinMapData} unit={unit} />
         </div>
+      </div>
+
+      {/* Units selector */}
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        Unidad de volumen:
+        <button
+          className={`rounded border px-2 py-1 ${unit === "m3" ? "bg-foreground text-background" : "hover:bg-muted"}`}
+          onClick={() => setUnit("m3")}
+        >
+          m3
+        </button>
+        <button
+          className={`rounded border px-2 py-1 ${unit === "bbl" ? "bg-foreground text-background" : "hover:bg-muted"}`}
+          onClick={() => setUnit("bbl")}
+        >
+          bbl
+        </button>
       </div>
 
       {/* Placeholder for drill-down navigation */}

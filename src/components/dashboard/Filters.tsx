@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/dashboard/DatePicker";
+import { shortenProductName, shortCode } from "@/lib/utils";
 
 export type FiltersValue = {
   product?: string;
@@ -49,11 +50,24 @@ export function Filters({
           }}
         >
           <option value="">Todos</option>
-          {productOptions.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
+          {(() => {
+            // Build a map of short label counts to detect collisions
+            const counts = new Map<string, number>();
+            for (const p of productOptions) {
+              const s = shortenProductName(p);
+              counts.set(s, (counts.get(s) || 0) + 1);
+            }
+            return productOptions.map((p) => {
+              const s = shortenProductName(p);
+              const needsDisambiguation = (counts.get(s) || 0) > 1;
+              const label = needsDisambiguation ? `${s} (${shortCode(p).toUpperCase()})` : s;
+              return (
+                <option key={p} value={p}>
+                  {label}
+                </option>
+              );
+            });
+          })()}
         </select>
       </div>
       <div className="flex flex-col">

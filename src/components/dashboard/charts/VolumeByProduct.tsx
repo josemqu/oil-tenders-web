@@ -3,13 +3,14 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartTooltip } from "@/components/dashboard/charts/ChartTooltip";
+import { unitSuffix, type VolumeUnit } from "@/lib/utils";
 
 export type ProductItem = {
   product: string;
   volume: number;
 };
 
-export function VolumeByProduct({ data, onClick }: { data: ProductItem[]; onClick?: (product: string) => void }) {
+export function VolumeByProduct({ data, onClick, unit = "m3" }: { data: ProductItem[]; onClick?: (product: string) => void; unit?: VolumeUnit }) {
   return (
     <Card className="shadow-sm">
       <CardHeader>
@@ -21,7 +22,7 @@ export function VolumeByProduct({ data, onClick }: { data: ProductItem[]; onClic
             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
             <XAxis dataKey="product" tickMargin={8} />
             <YAxis tickMargin={8} />
-            <Tooltip content={(props) => <ChartTooltip {...props} suffix=" bbl" />} />
+            <Tooltip content={(props) => <ChartTooltip {...props} suffix={unitSuffix(unit)} />} />
             <Bar dataKey="volume" fill="#6366f1" onClick={(d: any) => onClick?.(d?.product)} />
           </BarChart>
         </ResponsiveContainer>

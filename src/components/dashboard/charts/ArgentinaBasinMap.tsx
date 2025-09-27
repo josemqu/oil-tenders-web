@@ -11,6 +11,8 @@ import {
   Sphere,
 } from "react-simple-maps";
 import { useState } from "react";
+import { getBasinGroup } from "@/components/dashboard/charts/basins";
+import { unitSuffix, type VolumeUnit } from "@/lib/utils";
 
 // Use world-atlas from unpkg CDN (commonly used with react-simple-maps)
 const WORLD_110M = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
@@ -21,12 +23,27 @@ export type BasinPoint = {
   value: number; // total volume
 };
 
-export function ArgentinaBasinMap({ data }: { data: BasinPoint[] }) {
+export function ArgentinaBasinMap({ data, unit = "m3" }: { data: BasinPoint[]; unit?: VolumeUnit }) {
   // Compute max for sizing
   const max = Math.max(1, ...data.map((d) => d.value || 0));
   const radius = (v: number) => {
     const r = 6 + 20 * Math.sqrt(v / max);
     return Math.max(6, Math.min(26, r));
+  };
+
+  // Color palette by basin group
+  const groupColors: Record<string, { fill: string; stroke: string }> = {
+    "Neuquina": { fill: "#22c55e", stroke: "#16a34a" },       // emerald
+    "Golfo San Jorge": { fill: "#3b82f6", stroke: "#1d4ed8" }, // blue
+    "Austral": { fill: "#ef4444", stroke: "#b91c1c" },         // red
+    "Noroeste": { fill: "#a855f7", stroke: "#7e22ce" },        // purple
+    "Cuyana": { fill: "#f59e0b", stroke: "#b45309" },          // amber
+    "Otro": { fill: "#94a3b8", stroke: "#64748b" },            // slate
+  };
+
+  const colorFor = (name: string) => {
+    const g = getBasinGroup(name) || "Otro";
+    return groupColors[g] || groupColors["Otro"];
   };
 
   const [hover, setHover] = useState<{
@@ -128,13 +145,18 @@ export function ArgentinaBasinMap({ data }: { data: BasinPoint[] }) {
                   }
                   onMouseLeave={() => setHover(null)}
                 >
-                  <circle
-                    r={radius(b.value)}
-                    fill="#22c55e"
-                    fillOpacity={0.6}
-                    stroke="#16a34a"
-                    strokeWidth={1.5}
-                  />
+                  {(() => {
+                    const c = colorFor(b.name);
+                    return (
+                      <circle
+                        r={radius(b.value)}
+                        fill={c.fill}
+                        fillOpacity={0.6}
+                        stroke={c.stroke}
+                        strokeWidth={1.5}
+                      />
+                    );
+                  })()}
                 </Marker>
               ))}
             </ZoomableGroup>
@@ -145,7 +167,7 @@ export function ArgentinaBasinMap({ data }: { data: BasinPoint[] }) {
               style={{ left: hover.x + 12, top: hover.y + 12 }}
             >
               <div className="font-medium text-foreground">{hover.name}</div>
-              <div className="text-muted-foreground">{hover.value.toLocaleString()} bbl</div>
+              <div className="text-muted-foreground">{hover.value.toLocaleString()}{unitSuffix(unit)}</div>
             </div>
           )}
         </div>

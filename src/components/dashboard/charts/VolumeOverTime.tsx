@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartTooltip } from "@/components/dashboard/charts/ChartTooltip";
+import { unitSuffix, type VolumeUnit } from "@/lib/utils";
 
 export type TimePoint = {
   date: string; // YYYY-MM-DD
@@ -19,7 +20,7 @@ export type TimePoint = {
   awarded: number;
 };
 
-export function VolumeOverTime({ data }: { data: TimePoint[] }) {
+export function VolumeOverTime({ data, unit = "m3" }: { data: TimePoint[]; unit?: VolumeUnit }) {
   return (
     <Card className="shadow-sm">
       <CardHeader>
@@ -41,7 +42,7 @@ export function VolumeOverTime({ data }: { data: TimePoint[] }) {
             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
             <XAxis dataKey="date" tickMargin={8} />
             <YAxis tickMargin={8} />
-            <Tooltip content={(props) => <ChartTooltip {...props} suffix=" bbl" />} />
+            <Tooltip content={(props) => <ChartTooltip {...props} suffix={unitSuffix(unit)} />} />
             <Legend />
             <Area type="monotone" dataKey="tendered" stroke="#3b82f6" fill="url(#tendered)" />
             <Area type="monotone" dataKey="awarded" stroke="#10b981" fill="url(#awarded)" />

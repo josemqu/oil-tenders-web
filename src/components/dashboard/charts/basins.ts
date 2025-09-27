@@ -137,3 +137,48 @@ export function getBasinCoords(name: string): [number, number] | undefined {
 
   return undefined;
 }
+
+// Returns a normalized basin group for coloring/aggregation purposes
+// Possible values: "Neuquina", "Golfo San Jorge", "Austral", "Noroeste", "Cuyana"
+export function getBasinGroup(name: string | undefined | null): string | undefined {
+  if (!name) return undefined;
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .replace(/[–—]/g, "-")
+      .replace(/\s+\/\s+/g, "/")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  const n = norm(name);
+
+  // Group detection by keywords
+  if (n.includes("neuquina") || n.includes("neuquen") || n.includes("medanito")) return "Neuquina";
+  if (n.includes("golfo") || n.includes("san jorge")) return "Golfo San Jorge";
+  if (
+    n.includes("austral") ||
+    n.includes("tierra del fuego") ||
+    n.includes("santa cruz") ||
+    n.includes("san sebastian") ||
+    n.includes("san sebasti\u00e1n")
+  )
+    return "Austral";
+  if (
+    n.includes("noroeste") ||
+    n.includes("noa") ||
+    n.includes("salta") ||
+    n.includes("jujuy") ||
+    n.includes("formosa")
+  )
+    return "Noroeste";
+  if (
+    n.includes("cuyana") ||
+    n.includes("mendoza") ||
+    n.includes("san juan") ||
+    n.includes("san luis")
+  )
+    return "Cuyana";
+
+  return undefined;
+}
