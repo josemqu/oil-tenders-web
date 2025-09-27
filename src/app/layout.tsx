@@ -2,6 +2,7 @@ import "./globals.css";
 import { ReactNode } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import ApiStatus from "@/components/ApiStatus";
+import Navbar from "@/components/Navbar";
 
 export const metadata = {
   title: "Oil Tenders Dashboard",
@@ -36,9 +37,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <div className="min-h-screen bg-background text-foreground">
           <header className="border-b">
-            <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-              <h1 className="text-xl font-semibold">Oil Tenders</h1>
-              <div className="flex items-center gap-3">
+            <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
+              <h1 className="text-xl font-semibold whitespace-nowrap">Oil Tenders</h1>
+              <div className="flex-1 flex justify-center">
+                <Navbar />
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
                 <ApiStatus />
                 <ThemeToggle />
               </div>
@@ -50,3 +54,4 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     </html>
   );
 }
+
