@@ -2,6 +2,7 @@
 
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartTooltip } from "@/components/dashboard/charts/ChartTooltip";
 
 export type CountryItem = {
   country: string;
@@ -21,7 +22,7 @@ export function VolumeByCountry({ data, onClick }: { data: CountryItem[]; onClic
             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
             <XAxis dataKey="country" tickMargin={8} />
             <YAxis tickMargin={8} />
-            <Tooltip contentStyle={{ borderRadius: 8 }} />
+            <Tooltip content={(props) => <ChartTooltip {...props} suffix=" bbl" />} />
             <Bar dataKey="offering" fill="#22c55e" onClick={(d: any) => onClick?.(d?.country)} />
             <Bar dataKey="destination" fill="#3b82f6" onClick={(d: any) => onClick?.(d?.country)} />
           </BarChart>

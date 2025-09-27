@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { VolumeOverTime, TimePoint } from "@/components/dashboard/charts/VolumeOverTime";
@@ -8,12 +9,14 @@ import { VolumeByProduct, ProductItem } from "@/components/dashboard/charts/Volu
 import { VolumeByCountry, CountryItem } from "@/components/dashboard/charts/VolumeByCountry";
 import { OffersFunnel, FunnelItem } from "@/components/dashboard/charts/OffersFunnel";
 import { PriceVsVolume, ScatterPoint } from "@/components/dashboard/charts/PriceVsVolume";
-import { OffersCalendar, CalendarDay } from "@/components/dashboard/charts/OffersCalendar";
+import { ExportsByBasin, BasinBar } from "@/components/dashboard/charts/ExportsByBasin";
 import { TopCompaniesTable, CompanyRow } from "@/components/dashboard/Tables/TopCompaniesTable";
 import { NearExpirationList, ExpiringOffer } from "@/components/dashboard/Tables/NearExpirationList";
 import { Filters, FiltersValue } from "@/components/dashboard/Filters";
 import { Droplets, Award, Percent, Gauge } from "lucide-react";
 import { api } from "@/lib/api";
+import { ArgentinaBasinMap, BasinPoint } from "@/components/dashboard/charts/ArgentinaBasinMap";
+import { getBasinCoords } from "@/components/dashboard/charts/basins";
 
 type AnyOffer = Record<string, any>;
 
@@ -75,6 +78,8 @@ function inferStatus(o: AnyOffer): "tendered" | "active" | "awarded" {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [filters, setFilters] = useState<FiltersValue>({});
   const [offers, setOffers] = useState<AnyOffer[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -102,6 +107,52 @@ export default function DashboardPage() {
       alive = false;
     };
   }, []);
+
+  // Initialize filters from URL or localStorage
+  useEffect(() => {
+    // Parse from URL
+    const urlFilters: FiltersValue = {
+      product: searchParams.get("product") || undefined,
+      country: searchParams.get("country") || undefined,
+      company: searchParams.get("company") || undefined,
+      from: searchParams.get("from") || undefined,
+      to: searchParams.get("to") || undefined,
+    };
+    const hasUrl = Object.values(urlFilters).some((v) => v && String(v).length > 0);
+    if (hasUrl) {
+      setFilters(urlFilters);
+      try {
+        localStorage.setItem("OIL_TENDERS_FILTERS", JSON.stringify(urlFilters));
+      } catch {}
+      return;
+    }
+    // Fallback to localStorage
+    try {
+      const raw = localStorage.getItem("OIL_TENDERS_FILTERS");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setFilters(parsed || {});
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist filters to URL and localStorage
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (filters.product) params.set("product", filters.product);
+    if (filters.country) params.set("country", filters.country);
+    if (filters.company) params.set("company", filters.company);
+    if (filters.from) params.set("from", filters.from);
+    if (filters.to) params.set("to", filters.to);
+    const qs = params.toString();
+    const url = qs ? `/dashboard?${qs}` : `/dashboard`;
+    // Typed routes may reject query strings; cast to any to update URL
+    router.replace(url as any);
+    try {
+      localStorage.setItem("OIL_TENDERS_FILTERS", JSON.stringify(filters));
+    } catch {}
+  }, [filters, router]);
 
   const filteredProduct = useMemo(() => filters.product?.toLowerCase().trim(), [filters]);
   const filteredCountry = useMemo(() => filters.country?.toLowerCase().trim(), [filters]);
@@ -177,6 +228,22 @@ export default function DashboardPage() {
     const awardRate = filtered.length ? awardedCount / filtered.length : 0;
     const avgPrice = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
     return { tenderedVolume: tenderedVol, awardedVolume: awardedVol, awardRate, avgPrice, activeOffers: activeCount };
+  }, [filtered]);
+
+  // Basin map aggregation (Argentina)
+  const basinMapData: BasinPoint[] = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const o of filtered) {
+      const basin = (pickString(o, ["basin", "cuenca", "basin_name"]) || "Desconocida").trim();
+      const vol = pickNumber(o, ["tendered_volume", "volume", "qty", "quantity", "bbl", "bbls"]) || 0;
+      map.set(basin, (map.get(basin) || 0) + vol);
+    }
+    const arr: BasinPoint[] = [];
+    for (const [name, value] of map.entries()) {
+      const coords = getBasinCoords(name) || [-64.0, -40.5];
+      arr.push({ name, coordinates: coords, value });
+    }
+    return arr.sort((a, b) => b.value - a.value);
   }, [filtered]);
 
   const series: TimePoint[] = useMemo(() => {
@@ -258,14 +325,18 @@ export default function DashboardPage() {
     return pts.slice(0, 1000);
   }, [filtered]);
 
-  const calendar: CalendarDay[] = useMemo(() => {
+  // Exports by basin (total volume per basin)
+  const exportsByBasin: BasinBar[] = useMemo(() => {
     const map = new Map<string, number>();
     for (const o of filtered) {
-      const d = (pickDateISO(o, ["deadline", "closing_date"]) || "").slice(0, 10);
-      if (!d) continue;
-      map.set(d, (map.get(d) || 0) + 1);
+      const basin = (pickString(o, ["basin", "cuenca", "basin_name"]) || "Desconocida").trim();
+      const vol = pickNumber(o, ["tendered_volume", "volume", "qty", "quantity", "bbl", "bbls"]) || 0;
+      map.set(basin, (map.get(basin) || 0) + vol);
     }
-    return Array.from(map.entries()).map(([date, count]) => ({ date, count }));
+    return Array.from(map.entries())
+      .map(([basin, volume]) => ({ basin, volume }))
+      .sort((a, b) => b.volume - a.volume)
+      .slice(0, 12);
   }, [filtered]);
 
   const companies: CompanyRow[] = useMemo(() => {
@@ -342,7 +413,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <PriceVsVolume data={scatter} />
-        <OffersCalendar data={calendar} />
+        <ExportsByBasin data={exportsByBasin} />
       </div>
 
       {/* Tables */}
@@ -350,7 +421,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2">
           <TopCompaniesTable rows={companies} />
         </div>
-        <NearExpirationList items={expiring} />
+        <ArgentinaBasinMap data={basinMapData} />
       </div>
 
       {/* Placeholder for drill-down navigation */}

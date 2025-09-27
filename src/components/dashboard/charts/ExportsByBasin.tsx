@@ -1,28 +1,28 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartTooltip } from "@/components/dashboard/charts/ChartTooltip";
 
-export type ProductItem = {
-  product: string;
+export type BasinBar = {
+  basin: string;
   volume: number;
 };
 
-export function VolumeByProduct({ data, onClick }: { data: ProductItem[]; onClick?: (product: string) => void }) {
+export function ExportsByBasin({ data }: { data: BasinBar[] }) {
   return (
     <Card className="shadow-sm">
       <CardHeader>
-        <CardTitle>Volumen por producto</CardTitle>
+        <CardTitle>Exportaciones por cuenca</CardTitle>
       </CardHeader>
       <CardContent className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ left: 8, right: 8, top: 8, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-            <XAxis dataKey="product" tickMargin={8} />
+            <XAxis dataKey="basin" tickMargin={8} interval={0} angle={-15} height={50} textAnchor="end" />
             <YAxis tickMargin={8} />
             <Tooltip content={(props) => <ChartTooltip {...props} suffix=" bbl" />} />
-            <Bar dataKey="volume" fill="#6366f1" onClick={(d: any) => onClick?.(d?.product)} />
+            <Bar dataKey="volume" fill="#10b981" />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

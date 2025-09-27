@@ -2,6 +2,7 @@
 
 import { CartesianGrid, Legend, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartTooltip } from "@/components/dashboard/charts/ChartTooltip";
 
 export type ScatterPoint = {
   price: number;
@@ -27,7 +28,16 @@ export function PriceVsVolume({ data }: { data: ScatterPoint[] }) {
             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
             <XAxis type="number" dataKey="price" name="Precio" />
             <YAxis type="number" dataKey="volume" name="Volumen" />
-            <Tooltip cursor={{ strokeDasharray: "3 3" }} contentStyle={{ borderRadius: 8 }} />
+            <Tooltip
+              cursor={{ strokeDasharray: "3 3" }}
+              content={(props) => (
+                <ChartTooltip
+                  {...props}
+                  title="Precio vs Volumen"
+                  suffix=""
+                />
+              )}
+            />
             <Legend />
             {(["tendered", "active", "awarded"] as const).map((k) => (
               <Scatter key={k} name={k} data={data.filter((d) => d.status === k)} fill={colorByStatus[k]} />

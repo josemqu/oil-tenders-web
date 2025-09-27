@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartTooltip } from "@/components/dashboard/charts/ChartTooltip";
 
 export type TimePoint = {
   date: string; // YYYY-MM-DD
@@ -40,7 +41,7 @@ export function VolumeOverTime({ data }: { data: TimePoint[] }) {
             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
             <XAxis dataKey="date" tickMargin={8} />
             <YAxis tickMargin={8} />
-            <Tooltip contentStyle={{ borderRadius: 8 }} />
+            <Tooltip content={(props) => <ChartTooltip {...props} suffix=" bbl" />} />
             <Legend />
             <Area type="monotone" dataKey="tendered" stroke="#3b82f6" fill="url(#tendered)" />
             <Area type="monotone" dataKey="awarded" stroke="#10b981" fill="url(#awarded)" />
