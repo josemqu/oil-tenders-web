@@ -7,6 +7,12 @@ export const BASIN_COORDS: Record<string, [number, number]> = {
   "Neuquina – La Pampa (Medanito)": [-67.965527, -37.288923], // coordenadas de La Pampa, Argentina
   "Neuquina – Mendoza": [-69.378964, -35.685917],
 
+  // Extra Neuquina variants by province keywords
+  "Neuquina – Neuquén": [-69.126565, -38.543328],
+  "Neuquina – Río Negro": [-67.385008, -38.956695],
+  "Neuquina – La Pampa": [-67.965527, -37.288923],
+  // "Neuquina – Mendoza" variant already covered above
+
   // Aggregate Neuquina fallback
   Neuquina: [-69.126565, -38.543328],
   "Cuenca Neuquina": [-69.126565, -38.543328],
@@ -18,6 +24,9 @@ export const BASIN_COORDS: Record<string, [number, number]> = {
   ], // [-68.5, -46]
   "Golfo San Jorge": [-68.5, -46.0],
   "Cuenca del Golfo San Jorge": [-68.5, -46.0],
+  // Province-specific emphasis for GSJ
+  "Golfo San Jorge – Chubut": [-68.7, -45.8],
+  "Golfo San Jorge – Santa Cruz": [-68.3, -46.4],
 
   // Austral variants
   "Austral – Tierra del Fuego Off Shore (Hidra)": [-67.0, -54.0],
@@ -26,46 +35,105 @@ export const BASIN_COORDS: Record<string, [number, number]> = {
   "Austral – Tierra del Fuego – San Sebastián": [-66.5, -54.5],
   Austral: [-68.5, -52.0],
   "Cuenca Austral": [-68.5, -52.0],
+  // Extra Austral variants
+  "Austral – Tierra del Fuego": [-67.5, -54.3],
+  "Austral – Magallanes": [-71.0, -53.0], // referencia general (lado chileno), útil si aparece en datos
 
   // Noroeste
   "Noroeste – Salta": [-65.5, -24.5],
   Noroeste: [-65.5, -24.5],
   "Cuenca del Noroeste": [-65.5, -24.5],
+  // Extra NW variants
+  "Noroeste – Jujuy": [-65.3, -23.3],
+  "Noroeste – Formosa": [-58.2, -26.2],
 
   // Other basins for completeness
   Cuyana: [-68.8, -32.6],
   "Cuenca Cuyana": [-68.8, -32.6],
+  // Province-level hints for Cuyana
+  "Cuyana – Mendoza": [-68.845, -32.889],
+  "Cuyana – San Juan": [-68.521, -31.535],
+  "Cuyana – San Luis": [-66.335, -33.296],
 };
 
 export function getBasinCoords(name: string): [number, number] | undefined {
   if (!name) return undefined;
-  // Try exact, then case-insensitive
+
+  // Exact match first (case-sensitive then insensitive)
   if (BASIN_COORDS[name]) return BASIN_COORDS[name];
-  const key = Object.keys(BASIN_COORDS).find(
+  const exactInsensitive = Object.keys(BASIN_COORDS).find(
     (k) => k.toLowerCase() === name.toLowerCase()
   );
-  if (key) return BASIN_COORDS[key];
-  // Heuristics: map by inclusion for common labels
-  const n = name.toLowerCase();
-  if (n.includes("neuquina") && n.includes("neuqu"))
-    return BASIN_COORDS["Neuquina – Neuquén (Medanito)"];
-  if (n.includes("neuquina") && n.includes("río negro"))
-    return BASIN_COORDS["Neuquina – Río Negro (Medanito)"];
-  if (n.includes("neuquina") && n.includes("la pampa"))
-    return BASIN_COORDS["Neuquina – La Pampa (Medanito)"];
-  if (n.includes("neuquina") && n.includes("mendoza"))
-    return BASIN_COORDS["Neuquina – Mendoza"];
-  if (n.includes("golfo") || n.includes("san jorge"))
+  if (exactInsensitive) return BASIN_COORDS[exactInsensitive];
+
+  // Normalize accents and punctuation for robust matching
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .replace(/[–—]/g, "-")
+      .replace(/\s+\/\s+/g, "/")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+
+  const n = norm(name);
+
+  // Token helpers
+  const has = (kw: string | RegExp) =>
+    typeof kw === "string" ? n.includes(norm(kw)) : kw.test(n);
+
+  // Neuquina sub-zones by province
+  if (has("neuquina") || has("cuenca neuquina")) {
+    if (has("rio negro") || has("r\u00EDo negro")) return BASIN_COORDS["Neuquina – Río Negro (Medanito)"];
+    if (has("la pampa")) return BASIN_COORDS["Neuquina – La Pampa (Medanito)"];
+    if (has("mendoza")) return BASIN_COORDS["Neuquina – Mendoza"];
+    if (has("neuquen") || has("neuqu\u00E9n")) return BASIN_COORDS["Neuquina – Neuquén (Medanito)"];
+    // fallback to aggregate Neuquina centroid
+    return BASIN_COORDS["Neuquina"];
+  }
+
+  // Golfo San Jorge sub-zones by province
+  if (has("golfo") || has("san jorge")) {
+    if (has("chubut")) return BASIN_COORDS["Golfo San Jorge – Chubut"];
+    if (has("santa cruz")) return BASIN_COORDS["Golfo San Jorge – Santa Cruz"];
     return BASIN_COORDS["Golfo San Jorge"];
-  if (n.includes("austral") && n.includes("fuego") && n.includes("off"))
-    return BASIN_COORDS["Austral – Tierra del Fuego Off Shore (Hidra)"];
-  if (n.includes("austral") && n.includes("santa cruz") && n.includes("off"))
-    return BASIN_COORDS["Austral – Santa Cruz Off Shore"];
-  if (n.includes("austral") && n.includes("santa cruz"))
-    return BASIN_COORDS["Austral – Santa Cruz On Shore"];
-  if (n.includes("austral") && n.includes("san sebastián"))
-    return BASIN_COORDS["Austral – Tierra del Fuego – San Sebastián"];
-  if (n.includes("noroeste") || n.includes("salta"))
-    return BASIN_COORDS["Noroeste – Salta"];
+  }
+
+  // Austral: onshore/offshore and province
+  if (has("austral")) {
+    const offshore = has("off") || has("offshore") || has("off shore") || has("mar") || has("costa afuera");
+    if ((has("tierra del fuego") || has("tdf")) && offshore) return BASIN_COORDS["Austral – Tierra del Fuego Off Shore (Hidra)"];
+    if (has("santa cruz") && offshore) return BASIN_COORDS["Austral – Santa Cruz Off Shore"];
+    if (has("san sebastian") || has("san sebasti\u00E1n")) return BASIN_COORDS["Austral – Tierra del Fuego – San Sebastián"];
+    if (has("santa cruz")) return BASIN_COORDS["Austral – Santa Cruz On Shore"];
+    if (has("tierra del fuego")) return BASIN_COORDS["Austral – Tierra del Fuego"];
+    return BASIN_COORDS["Cuenca Austral"];
+  }
+
+  // Noroeste by province
+  if (has("noroeste") || has("noa") || has("noroeste argentino")) {
+    if (has("jujuy")) return BASIN_COORDS["Noroeste – Jujuy"];
+    if (has("salta")) return BASIN_COORDS["Noroeste – Salta"];
+    if (has("formosa")) return BASIN_COORDS["Noroeste – Formosa"];
+    return BASIN_COORDS["Cuenca del Noroeste"];
+  }
+
+  // Cuyana by province
+  if (has("cuyana") || has("cuenca cuyana")) {
+    if (has("mendoza")) return BASIN_COORDS["Cuyana – Mendoza"];
+    if (has("san juan")) return BASIN_COORDS["Cuyana – San Juan"];
+    if (has("san luis")) return BASIN_COORDS["Cuyana – San Luis"];
+    return BASIN_COORDS["Cuenca Cuyana"];
+  }
+
+  // Generic province hints when basin name includes only province
+  if (has("salta")) return BASIN_COORDS["Noroeste – Salta"];
+  if (has("jujuy")) return BASIN_COORDS["Noroeste – Jujuy"];
+  if (has("rio negro") || has("r\u00EDo negro")) return BASIN_COORDS["Neuquina – Río Negro (Medanito)"];
+  if (has("neuquen") || has("neuqu\u00E9n")) return BASIN_COORDS["Neuquina – Neuquén (Medanito)"];
+  if (has("la pampa")) return BASIN_COORDS["Neuquina – La Pampa (Medanito)"];
+  if (has("mendoza")) return BASIN_COORDS["Neuquina – Mendoza"];
+
   return undefined;
 }
