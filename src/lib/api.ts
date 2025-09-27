@@ -24,4 +24,6 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   health: () => apiFetch<ApiHealth>("/health"),
   openapi: () => apiFetch<any>("/openapi.json"),
+  // Returns the latest offers. The API is expected to return an array or an object with an `items` array.
+  offers: () => apiFetch<any>("/offers"),
 };

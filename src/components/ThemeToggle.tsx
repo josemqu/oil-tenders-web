@@ -18,8 +18,10 @@ export default function ThemeToggle() {
   // Initialize from localStorage or system preference
   useEffect(() => {
     try {
-      const stored = (localStorage.getItem("theme") as "light" | "dark" | null);
-      const systemDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const stored = localStorage.getItem("theme") as "light" | "dark" | null;
+      const systemDark =
+        window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches;
       const initial = stored || (systemDark ? "dark" : "light");
       setTheme(initial);
       applyTheme(initial);
@@ -77,7 +79,9 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      aria-label={theme === "dark" ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
+      aria-label={
+        theme === "dark" ? "Cambiar a tema claro" : "Cambiar a tema oscuro"
+      }
       className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm hover:bg-muted"
     >
       {theme === "dark" ? (
@@ -89,7 +93,6 @@ export default function ThemeToggle() {
           ☀️
         </span>
       )}
-      <span className="hidden sm:inline">{theme === "dark" ? "Oscuro" : "Claro"}</span>
     </button>
   );
 }
