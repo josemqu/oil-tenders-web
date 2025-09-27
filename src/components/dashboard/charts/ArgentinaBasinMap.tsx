@@ -135,9 +135,6 @@ export function ArgentinaBasinMap({ data }: { data: BasinPoint[] }) {
                     stroke="#16a34a"
                     strokeWidth={1.5}
                   />
-                  <title>
-                    {b.name}: {b.value.toLocaleString()} bbl
-                  </title>
                 </Marker>
               ))}
             </ZoomableGroup>
