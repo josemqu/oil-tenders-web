@@ -10,14 +10,15 @@ import { VolumeByCountry, CountryItem } from "@/components/dashboard/charts/Volu
 import { OffersFunnel, FunnelItem } from "@/components/dashboard/charts/OffersFunnel";
 import { PriceVsVolume, ScatterPoint } from "@/components/dashboard/charts/PriceVsVolume";
 import { ExportsByBasin, BasinBar } from "@/components/dashboard/charts/ExportsByBasin";
+import { OriginDestinationSankey, SankeyLink } from "@/components/dashboard/charts/OriginDestinationSankey";
 import { TopCompaniesTable, CompanyRow } from "@/components/dashboard/Tables/TopCompaniesTable";
 import { NearExpirationList, ExpiringOffer } from "@/components/dashboard/Tables/NearExpirationList";
 import { Filters, FiltersValue } from "@/components/dashboard/Filters";
 import { Droplets, Award, Percent, Gauge } from "lucide-react";
 import { api } from "@/lib/api";
 import { ArgentinaBasinMap, BasinPoint } from "@/components/dashboard/charts/ArgentinaBasinMap";
-import { getBasinCoords } from "@/components/dashboard/charts/basins";
-import { convertVolume, unitSuffix, type VolumeUnit } from "@/lib/utils";
+import { getBasinCoords, getBasinGroup } from "@/components/dashboard/charts/basins";
+import { convertVolume, unitSuffix, shortenDeliveryName, type VolumeUnit } from "@/lib/utils";
 
 type AnyOffer = Record<string, any>;
 
@@ -235,6 +236,44 @@ export default function DashboardPage() {
     return { tenderedVolume: tenderedConv, awardedVolume: awardedConv, awardRate, avgPrice, activeOffers: activeCount };
   }, [filtered, unit]);
 
+  // Sankey: Basin (source) -> Delivery Location (target)
+  const sankeyLinks: SankeyLink[] = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const o of filtered) {
+      const basin = (pickString(o, ["basin", "cuenca", "basin_name"]) || "N/A").trim();
+      const delivery =
+        (pickString(o, [
+          "delivery_location",
+          "delivery",
+          "location",
+          "port",
+          "terminal",
+          "destination",
+          "destination_port",
+        ]) || "N/A").trim();
+      const vol = pickNumber(o, ["tendered_volume", "volume", "qty", "quantity"]) || 0;
+      const deliveryShort = shortenDeliveryName(delivery);
+      const key = `${basin}__${deliveryShort}`;
+      map.set(key, (map.get(key) || 0) + vol);
+    }
+    // Convert and sort by value; assign color by basin group
+    const groupColors: Record<string, string> = {
+      "Neuquina": "#22c55e",
+      "Golfo San Jorge": "#3b82f6",
+      "Austral": "#ef4444",
+      "Noroeste": "#a855f7",
+      "Cuyana": "#f59e0b",
+      "Otro": "#94a3b8",
+    };
+    const links: (SankeyLink & { color?: string; stroke?: string })[] = Array.from(map.entries()).map(([k, v]) => {
+      const [source, target] = k.split("__");
+      const g = getBasinGroup(source) || "Otro";
+      const color = groupColors[g] || groupColors["Otro"];
+      return { source, target, value: convertVolume(v, "m3", unit), color, stroke: color };
+    });
+    return links.sort((a, b) => b.value - a.value).slice(0, 40); // cap for readability
+  }, [filtered, unit]);
+
   // Basin map aggregation (Argentina)
   const basinMapData: BasinPoint[] = useMemo(() => {
     const map = new Map<string, number>();
@@ -424,6 +463,11 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <PriceVsVolume data={scatter} />
         <ExportsByBasin data={exportsByBasin} unit={unit} />
+      </div>
+
+      {/* Sankey: Origin -> Destination */}
+      <div className="grid grid-cols-1 gap-6">
+        <OriginDestinationSankey links={sankeyLinks} unit={unit} />
       </div>
 
       {/* Tables + Map */}

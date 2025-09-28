@@ -114,3 +114,49 @@ export function shortCode(s: string, length = 4): string {
   }
   return (h >>> 0).toString(36).slice(0, length);
 }
+
+// Delivery/location normalization and shortening
+const DELIVERY_SHORT_DICT: Record<string, string> = {
+  "puerto de buenos aires": "Pto. Buenos Aires",
+  "port of buenos aires": "Pto. Buenos Aires",
+  "buenos aires": "Buenos Aires",
+  "bahia blanca": "Bahía Blanca",
+  "bahía blanca": "Bahía Blanca",
+  "dock sud": "Dock Sud",
+  "zarate": "Zárate",
+  "zárate": "Zárate",
+  "campana": "Campana",
+  "san lorenzo": "San Lorenzo",
+  "rosario": "Rosario",
+  "necochea": "Necochea",
+  "quequen": "Quequén",
+  "quequén": "Quequén",
+  "comodoro rivadavia": "Comodoro Rivadavia",
+  "caleta paula": "Caleta Paula",
+  "ushuaia": "Ushuaia",
+  "punta quilla": "Punta Quilla",
+  "punta loyola": "Punta Loyola",
+};
+
+export function shortenDeliveryName(name: string): string {
+  if (!name) return "";
+  const raw = String(name).trim();
+  const n = normalizeStr(raw);
+
+  // Exact dictionary
+  if (DELIVERY_SHORT_DICT[n]) return DELIVERY_SHORT_DICT[n];
+
+  // Remove common prefixes
+  let s = n
+    .replace(/^(puerto|puerta|port)\s+(de|of)\s+/i, "")
+    .replace(/^(terminal|terminal\s+de)\s+/i, "")
+    .replace(/^(muelle)\s+/i, "")
+    .replace(/^pto\.?\s+/i, "")
+    .trim();
+
+  // Keep up to 3 words and title case
+  s = s.replace(/\([^)]*\)/g, "").trim();
+  const words = s.split(/\s+/).slice(0, 3).join(" ");
+  if (DELIVERY_SHORT_DICT[words]) return DELIVERY_SHORT_DICT[words];
+  return titleCase(words || s || raw);
+}
