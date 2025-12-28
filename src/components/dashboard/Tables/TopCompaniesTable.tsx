@@ -7,12 +7,19 @@ export type CompanyRow = {
   volume: number;
   percent: number; // 0..1
   offers: number;
+  wins: number;
+  winRate: number; // 0..1
 };
 
 export function TopCompaniesTable({ rows }: { rows: CompanyRow[] }) {
   const [sort, setSort] = useState<keyof CompanyRow>("volume");
   const sorted = useMemo(() => {
-    return [...rows].sort((a, b) => (b[sort] as number) - (a[sort] as number));
+    return [...rows].sort((a, b) => {
+        const valA = a[sort];
+        const valB = b[sort];
+        if (typeof valA === 'string' && typeof valB === 'string') return valA.localeCompare(valB);
+        return (valB as number) - (valA as number);
+    });
   }, [rows, sort]);
 
   return (
@@ -24,17 +31,21 @@ export function TopCompaniesTable({ rows }: { rows: CompanyRow[] }) {
             <tr className="border-b bg-muted/40">
               <Th onClick={() => setSort("company")}>Empresa</Th>
               <Th onClick={() => setSort("volume")}>Volumen</Th>
-              <Th onClick={() => setSort("percent")}>% del total</Th>
+              <Th onClick={() => setSort("percent")}>% vol</Th>
               <Th onClick={() => setSort("offers")}>Ofertas</Th>
+              <Th onClick={() => setSort("wins")}>Adj.</Th>
+              <Th onClick={() => setSort("winRate")}>Tasa Éxito</Th>
             </tr>
           </thead>
           <tbody>
             {sorted.map((r) => (
               <tr key={r.company} className="border-b hover:bg-muted/50">
-                <td className="px-3 py-2">{r.company}</td>
+                <td className="px-3 py-2 font-medium">{r.company}</td>
                 <td className="px-3 py-2">{r.volume.toLocaleString()}</td>
                 <td className="px-3 py-2">{(r.percent * 100).toFixed(1)}%</td>
                 <td className="px-3 py-2">{r.offers}</td>
+                <td className="px-3 py-2">{r.wins}</td>
+                <td className="px-3 py-2 text-muted-foreground">{(r.winRate * 100).toFixed(0)}%</td>
               </tr>
             ))}
           </tbody>

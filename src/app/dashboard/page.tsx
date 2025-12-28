@@ -7,7 +7,7 @@ import { KpiCard } from "@/components/dashboard/KpiCard";
 import { VolumeOverTime, TimePoint } from "@/components/dashboard/charts/VolumeOverTime";
 import { VolumeByProduct, ProductItem } from "@/components/dashboard/charts/VolumeByProduct";
 import { VolumeByCountry, CountryItem } from "@/components/dashboard/charts/VolumeByCountry";
-import { OffersFunnel, FunnelItem } from "@/components/dashboard/charts/OffersFunnel";
+
 import { PriceVsVolume, ScatterPoint } from "@/components/dashboard/charts/PriceVsVolume";
 import { ExportsByBasin, BasinBar } from "@/components/dashboard/charts/ExportsByBasin";
 import { OriginDestinationSankey, SankeyLink } from "@/components/dashboard/charts/OriginDestinationSankey";
@@ -209,9 +209,12 @@ export default function DashboardPage() {
   const kpis = useMemo(() => {
     let tenderedVol = 0;
     let awardedVol = 0;
-    const prices: number[] = [];
+    let activeVol = 0;
+    let vwapSum = 0;
+    let vwapVol = 0;
     let activeCount = 0;
     let awardedCount = 0;
+    const priceList: number[] = [];
 
     const now = new Date().toISOString();
     for (const o of filtered) {
@@ -221,19 +224,42 @@ export default function DashboardPage() {
       const deadline = pickDateISO(o, ["deadline", "closing_date"]) || "";
 
       tenderedVol += vol || 0;
+      
       if (status === "awarded") {
         awardedVol += pickNumber(o, ["awarded_volume", "volume", "qty", "quantity"]) || 0;
         awardedCount += 1;
       }
-      if (status === "active" || (!!deadline && deadline > now)) activeCount += 1;
-      if (typeof price === "number" && !isNaN(price)) prices.push(price);
+      
+      const isActive = status === "active" || (!!deadline && deadline > now);
+      if (isActive) {
+        activeCount += 1;
+        activeVol += vol;
+      }
+
+      if (typeof price === "number" && !isNaN(price) && vol > 0) {
+        priceList.push(price);
+        vwapSum += price * vol;
+        vwapVol += vol;
+      }
     }
+
     const awardRate = filtered.length ? awardedCount / filtered.length : 0;
-    const avgPrice = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
+    // Volume Weighted Average Price
+    const vwap = vwapVol > 0 ? vwapSum / vwapVol : 0;
+    
     // Convert for display
     const tenderedConv = convertVolume(tenderedVol, "m3", unit);
     const awardedConv = convertVolume(awardedVol, "m3", unit);
-    return { tenderedVolume: tenderedConv, awardedVolume: awardedConv, awardRate, avgPrice, activeOffers: activeCount };
+    const activeVolConv = convertVolume(activeVol, "m3", unit);
+
+    return { 
+      tenderedVolume: tenderedConv, 
+      awardedVolume: awardedConv, 
+      activeVolume: activeVolConv,
+      awardRate, 
+      vwap, 
+      activeOffers: activeCount 
+    };
   }, [filtered, unit]);
 
   // Sankey: Basin (source) -> Delivery Location (target)
@@ -345,23 +371,7 @@ export default function DashboardPage() {
     .slice(0, 12);
   }, [filtered, unit]);
 
-  const funnel: FunnelItem[] = useMemo(() => {
-    let total = filtered.length;
-    let active = 0;
-    let awarded = 0;
-    const now = new Date().toISOString();
-    for (const o of filtered) {
-      const status = inferStatus(o);
-      const deadline = pickDateISO(o, ["deadline", "closing_date"]) || "";
-      if (status === "awarded") awarded += 1;
-      if (status === "active" || (!!deadline && deadline > now)) active += 1;
-    }
-    return [
-      { name: "Licitado", value: total },
-      { name: "Activas", value: active },
-      { name: "Adjudicadas", value: awarded },
-    ];
-  }, [filtered]);
+
 
   const scatter: ScatterPoint[] = useMemo(() => {
     const pts: ScatterPoint[] = [];
@@ -369,7 +379,14 @@ export default function DashboardPage() {
       const price = pickNumber(o, ["tendered_price", "price", "unit_price"]);
       const vol = pickNumber(o, ["tendered_volume", "volume", "qty", "quantity"]);
       if (price == null || vol == null) continue;
-      pts.push({ price, volume: vol, status: inferStatus(o) });
+      // Include product and date for tooltip context
+      pts.push({ 
+        price, 
+        volume: vol, 
+        status: inferStatus(o),
+        product: pickString(o, ["product", "product_type"]),
+        date: pickDateISO(o, ["date", "published_at", "created_at"])
+      });
     }
     return pts.slice(0, 1000);
   }, [filtered]);
@@ -389,15 +406,19 @@ export default function DashboardPage() {
   }, [filtered, unit]);
 
   const companies: CompanyRow[] = useMemo(() => {
-    const mapVol = new Map<string, { volume: number; offers: number }>();
+    const mapVol = new Map<string, { volume: number; offers: number; wins: number }>();
     let totalVol = 0;
     for (const o of filtered) {
       const company = pickString(o, ["company", "buyer", "seller"]) || "N/A";
       const vol = pickNumber(o, ["tendered_volume", "volume", "qty", "quantity"]) || 0;
       totalVol += vol;
-      const cur = mapVol.get(company) || { volume: 0, offers: 0 };
+      const status = inferStatus(o);
+      const isAwarded = status === "awarded";
+
+      const cur = mapVol.get(company) || { volume: 0, offers: 0, wins: 0 };
       cur.volume += vol;
       cur.offers += 1;
+      if (isAwarded) cur.wins += 1;
       mapVol.set(company, cur);
     }
     const rows: CompanyRow[] = Array.from(mapVol.entries()).map(([company, v]) => ({
@@ -405,18 +426,23 @@ export default function DashboardPage() {
       volume: convertVolume(v.volume, "m3", unit),
       percent: totalVol ? v.volume / totalVol : 0,
       offers: v.offers,
+      wins: v.wins,
+      winRate: v.offers ? v.wins / v.offers : 0,
     }));
     return rows.sort((a, b) => b.volume - a.volume).slice(0, 20);
   }, [filtered, unit]);
 
   const expiring: ExpiringOffer[] = useMemo(() => {
     const items: ExpiringOffer[] = [];
+    const now = new Date().toISOString();
     for (const o of filtered) {
       const dateISO = pickDateISO(o, ["deadline", "closing_date"]) || "";
-      if (!dateISO) continue;
+      // Only show future or recent expirations, or just all that have a date?
+      // "Near Expiration" implies future.
+      if (!dateISO || dateISO < now) continue; 
       items.push({
         id: o.id ?? o.uuid ?? Math.random(),
-        title: pickString(o, ["title", "name", "product"]) || "Oferta",
+        title: pickString(o, ["title", "name", "product"]) || "Oferta sin título",
         closingDate: dateISO,
         product: pickString(o, ["product", "product_type"]) || undefined,
         country: pickString(o, ["country", "destination_country", "offering_country"]) || undefined,
@@ -439,20 +465,49 @@ export default function DashboardPage() {
         companyOptions={companyOptions}
       />
 
-      {/* KPI cards */}
+      {/* KPI cards - Improved */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard title={`Volumen licitado (${unitSuffix(unit).trim()})`} value={`${kpis.tenderedVolume.toLocaleString()}${unitSuffix(unit)}`} icon={<Droplets className="h-5 w-5" />} accent="blue" />
-        <KpiCard title={`Volumen adjudicado (${unitSuffix(unit).trim()})`} value={`${kpis.awardedVolume.toLocaleString()}${unitSuffix(unit)}`} icon={<Award className="h-5 w-5" />} accent="emerald" />
-        <KpiCard title="Tasa de adjudicación" value={`${(kpis.awardRate * 100).toFixed(1)}%`} icon={<Percent className="h-5 w-5" />} accent="violet" />
-        <KpiCard title="Precio promedio" value={`$${kpis.avgPrice.toFixed(2)}`} icon={<Gauge className="h-5 w-5" />} accent="amber" />
+        {/* Card 1: Total Volume (Market Scale) */}
+        <KpiCard 
+          title={`Volumen Total Licitado (${unitSuffix(unit).trim()})`} 
+          value={`${kpis.tenderedVolume.toLocaleString()}${unitSuffix(unit)}`} 
+          icon={<Droplets className="h-5 w-5" />} 
+          accent="blue" 
+        />
+        
+        {/* Card 2: Active Volume (Current Opportunities) */}
+        <KpiCard 
+          title={`Oportunidades Activas (${unitSuffix(unit).trim()})`}
+          value={`${kpis.activeOffers} licitaciones (${kpis.activeVolume.toLocaleString()}${unitSuffix(unit)})`} 
+          icon={<Award className="h-5 w-5" />} 
+          accent="emerald"
+        />
+
+        {/* Card 3: Awarded Volume (Success) */}
+        <KpiCard 
+          title={`Volumen Adjudicado (${unitSuffix(unit).trim()})`} 
+          value={`${kpis.awardedVolume.toLocaleString()}${unitSuffix(unit)}`} 
+          icon={<Percent className="h-5 w-5" />} 
+          accent="violet" 
+        />
+
+        {/* Card 4: VWAP (Professional Price Metric) */}
+        <KpiCard 
+          title="Precio Promedio Pond. (VWAP)" 
+          value={`$${kpis.vwap.toFixed(2)}`} 
+          icon={<Gauge className="h-5 w-5" />} 
+          accent="amber" 
+        />
       </div>
 
-      {/* Charts grid */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+      {/* Charts grid: Time Series + Near Expiration (Actionable) */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3 items-start">
         <div className="xl:col-span-2">
           <VolumeOverTime data={series} unit={unit} />
         </div>
-        <OffersFunnel data={funnel} />
+        <div className="h-full">
+           <NearExpirationList items={expiring} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
