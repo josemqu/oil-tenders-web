@@ -70,7 +70,8 @@ export function SpreadOverTime({ offers }: { offers: Record<string, any>[] }) {
       }
 
       items.push({
-        date: o.delivery_start,
+        date: new Date(o.delivery_start).getTime(),
+        dateStr: o.delivery_start,
         spread: spread,
         company: o.company || o.buyer || o.seller || "N/A",
         product,
@@ -79,8 +80,7 @@ export function SpreadOverTime({ offers }: { offers: Record<string, any>[] }) {
       });
     });
 
-    // Sort by date for the chart
-    return items.sort((a, b) => a.date.localeCompare(b.date));
+    return items.sort((a, b) => a.date - b.date);
   }, [offers, selectedProduct, selectedBase]);
 
   return (
@@ -113,28 +113,39 @@ export function SpreadOverTime({ offers }: { offers: Record<string, any>[] }) {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+            <ScatterChart margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted-foreground))" strokeOpacity={0.2} />
               <XAxis 
                 dataKey="date" 
                 name="Fecha Entrega" 
+                type="number"
+                scale="time"
+                domain={['auto', 'auto']}
                 tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                tickFormatter={(val) => val.slice(0, 7)} // Show YYYY-MM
+                tickFormatter={(val) => {
+                  const d = new Date(val);
+                  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                }}
               />
               <YAxis 
-                label={{ value: 'Spread (USD/bbl)', angle: -90, position: 'insideLeft', style: { fill: 'hsl(var(--muted-foreground))', fontSize: 12 } }}
+                type="number"
+                dataKey="spread"
+                name="Spread"
+                domain={['auto', 'auto']}
                 tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
                 axisLine={false}
                 tickLine={false}
+                tickFormatter={(val) => `${val > 0 ? "+" : ""}${val}`}
               />
               <Tooltip
+                cursor={{ strokeDasharray: '3 3' }}
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const d = payload[0].payload;
                     return (
                       <div className="rounded-md border border-border bg-popover px-3 py-2 text-xs shadow-md">
                         <div className="font-semibold text-foreground mb-1">{d.company}</div>
-                        <div className="text-muted-foreground">Delivery: {d.date}</div>
+                        <div className="text-muted-foreground">Delivery: {d.dateStr}</div>
                         <div className="text-muted-foreground">Base: {d.baseIndex}</div>
                         <div className={`font-mono font-bold mt-1 ${d.spread >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
                           Spread: {d.spread > 0 ? "+" : ""}{d.spread.toFixed(2)} USD/bbl
