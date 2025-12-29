@@ -13,7 +13,7 @@ export function OffersFunnel({ data }: { data: FunnelItem[] }) {
       <CardHeader>
         <CardTitle>Embudo de ofertas</CardTitle>
       </CardHeader>
-      <CardContent className="h-72">
+      <CardContent className="h-[350px]">
         <ResponsiveContainer width="100%" height="100%">
           <Treemap data={data} dataKey="value" stroke="#fff" fill="#fb7185" content={<CustomContent />}>
             {/* Tooltip must be a child of Treemap to access internal store */}

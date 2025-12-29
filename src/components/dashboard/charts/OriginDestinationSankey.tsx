@@ -77,7 +77,7 @@ export function OriginDestinationSankey({
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
-      <CardContent className="h-80">
+      <CardContent className="h-[350px]">
         <ResponsiveContainer width="100%" height="100%">
           {nodes.length > 0 && iLinks.length > 0 ? (
             <Sankey
