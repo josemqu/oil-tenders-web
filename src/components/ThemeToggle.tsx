@@ -71,7 +71,7 @@ export default function ThemeToggle() {
     return (
       <button
         aria-label="Cambiar tema"
-        className="h-9 w-9 rounded-md border border-border bg-background text-foreground opacity-0"
+        className="h-8 w-8 rounded-md border border-border bg-background text-foreground opacity-0"
       />
     );
   }
@@ -82,7 +82,7 @@ export default function ThemeToggle() {
       aria-label={
         theme === "dark" ? "Cambiar a tema claro" : "Cambiar a tema oscuro"
       }
-      className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm hover:bg-muted"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-sm font-medium text-foreground shadow-sm hover:bg-muted"
     >
       {theme === "dark" ? (
         <span role="img" aria-hidden>

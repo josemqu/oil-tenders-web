@@ -22,7 +22,7 @@ export default function Navbar() {
               <Link
                 href={href}
                 className={[
-                  "px-3 py-1.5 rounded-md transition-colors",
+                  "px-2.5 py-1 rounded-md transition-colors",
                   isActive
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted",

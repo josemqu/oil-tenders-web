@@ -36,9 +36,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body>
         <div className="min-h-screen bg-background text-foreground">
-          <header className="border-b">
-            <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
-              <h1 className="text-xl font-semibold whitespace-nowrap">Oil Tenders</h1>
+          <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="container mx-auto px-4 py-1.5 flex items-center justify-between gap-4">
+              <h1 className="text-base font-semibold whitespace-nowrap text-foreground/90">Oil Tenders</h1>
               <div className="flex-1 flex justify-center">
                 <Navbar />
               </div>

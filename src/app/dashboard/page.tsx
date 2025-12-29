@@ -11,6 +11,8 @@ import { VolumeByCountry, CountryItem } from "@/components/dashboard/charts/Volu
 import { PriceVsVolume, ScatterPoint } from "@/components/dashboard/charts/PriceVsVolume";
 import { ExportsByBasin, BasinBar } from "@/components/dashboard/charts/ExportsByBasin";
 import { OriginDestinationSankey, SankeyLink } from "@/components/dashboard/charts/OriginDestinationSankey";
+import { PriceStructureChart } from "@/components/dashboard/charts/PriceStructureChart";
+import { SpreadOverTime } from "@/components/dashboard/charts/SpreadOverTime";
 import { TopCompaniesTable, CompanyRow } from "@/components/dashboard/Tables/TopCompaniesTable";
 import { NearExpirationList, ExpiringOffer } from "@/components/dashboard/Tables/NearExpirationList";
 import { Filters, FiltersValue } from "@/components/dashboard/Filters";
@@ -518,6 +520,12 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <PriceVsVolume data={scatter} />
         <ExportsByBasin data={exportsByBasin} unit={unit} />
+      </div>
+
+      {/* Price Structure Spreads */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <PriceStructureChart offers={filtered} />
+        <SpreadOverTime offers={filtered} />
       </div>
 
       {/* Sankey: Origin -> Destination */}

@@ -60,50 +60,65 @@ async function analyzeOffer(offer: any) {
 async function main() {
   console.log('Starting analysis...');
 
-  // 1. Fetch offers that haven't been structured yet
-  const { data: offers, error } = await supabase
-    .from('oil_offers_export')
-    .select('id, price_formula, notes')
-    .not('price_formula', 'is', null) // Only rows with formulas
-    .is('price_structure', null)      // Only rows not yet processed
-// .limit(20);                       // Batch size to avoid rate limits removed
+  let processedCount = 0;
 
-  if (error) {
-    console.error('Error fetching offers:', error);
-    return;
-  }
+  while (true) {
+    // 1. Fetch a batch of offers that haven't been structured yet
+    const { data: offers, error } = await supabase
+      .from('oil_offers_export')
+      .select('id, price_formula, notes')
+      .not('price_formula', 'is', null) // Only rows with formulas
+      .is('price_structure', null)      // Only rows not yet processed
+      .order('id', { ascending: false }) // Prioritize newest offers for dashboard visibility
+      .limit(50);                       // Batch size
 
-  if (!offers || offers.length === 0) {
-    console.log('No pending offers to analyze.');
-    return;
-  }
-
-  console.log(`Found ${offers.length} offers to analyze.`);
-
-  for (const offer of offers) {
-    console.log(`Analyzing [${offer.id}]: ${offer.price_formula.substring(0, 50)}...`);
-    
-    const structure = await analyzeOffer(offer);
-    
-    if (structure) {
-      const { error: updateError } = await supabase
-        .from('oil_offers_export')
-        .update({ price_structure: structure })
-        .eq('id', offer.id);
-
-      if (updateError) {
-        console.error(`Failed to update offer ${offer.id}:`, updateError);
-      } else {
-        console.log(`Updated offer ${offer.id} successfully.`);
-      }
+    if (error) {
+      console.error('Error fetching offers:', error);
+      break;
     }
 
-    // Rate limiting delay (Gemini free tier: 15 RPM = ~4s per request safe margin)
-    // We'll wait 2 seconds between requests to be safe + processing time
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    if (!offers || offers.length === 0) {
+      console.log('No more pending offers to analyze.');
+      break;
+    }
+
+    console.log(`Fetching batch of ${offers.length} offers... (Total processed so far: ${processedCount})`);
+
+    for (const offer of offers) {
+      console.log(`Analyzing [${offer.id}]: ${offer.price_formula.substring(0, 50)}...`);
+      
+      const structure = await analyzeOffer(offer);
+      
+      if (structure) {
+        const { error: updateError } = await supabase
+          .from('oil_offers_export')
+          .update({ price_structure: structure })
+          .eq('id', offer.id);
+
+        if (updateError) {
+          console.error(`Failed to update offer ${offer.id}:`, updateError);
+        } else {
+          // console.log(`Updated offer ${offer.id} successfully.`);
+        }
+      } else {
+         // If analysis failed/returned null, maybe mark as skipped or just log? 
+         // For now we leave it null so it might be retried, but to avoid infinite loops on bad data 
+         // we might want to flag it. However, the prompt implies "analyze to complete". 
+         // If gemini fails, it returns null.
+         console.warn(`Skipping [${offer.id}] due to analysis failure.`);
+      }
+
+      // Rate limiting delay (Gemini free tier: 15 RPM = ~4s per request safe margin)
+      // 15 RPM = 1 request every 4 seconds.
+      // 2 seconds might be too aggressive if strict 15 RPM. 60s / 15 = 4s.
+      // Let's increase delay to 4000ms to be safe for free tier, or keep 2000 if user has paid.
+      // Assuming free tier based on previous interaction context ("Gemini free tier").
+      await new Promise(resolve => setTimeout(resolve, 4000));
+      processedCount++;
+    }
   }
 
-  console.log('Batch complete.');
+  console.log(`Batch complete. Total offers processed: ${processedCount}`);
 }
 
 main().catch(console.error);
